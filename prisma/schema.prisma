@@ -1,0 +1,99 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  internalCode String   @unique // Mã hàng nội bộ (SO)
+  customerCode String   @unique // Mã hàng khách (PO)
+  name         String
+  unit         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  poItems POItem[]
+  soItems SOItem[]
+}
+
+model PurchaseOrder {
+  id           String   @id @default(cuid())
+  poNumber     String   @unique
+  customerName String?
+  orderDate    DateTime @default(now())
+  status       String   @default("PENDING") // PENDING, PARTIAL, COMPLETED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items POItem[]
+}
+
+model POItem {
+  id        String  @id @default(cuid())
+  poId      String
+  productId String
+  quantity  Int     // Số lượng đặt
+  delivered Int     @default(0) // Số lượng đã giao (Cache field)
+  
+  po      PurchaseOrder @relation(fields: [poId], references: [id])
+  product Product       @relation(fields: [productId], references: [id])
+  
+  eoItems EOItem[]
+
+  @@index([poId])
+  @@index([productId])
+}
+
+model SalesOrder {
+  id        String   @id @default(cuid())
+  soNumber  String   @unique
+  poNumber  String?  // Reference to PO Number manually
+  orderDate DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items SOItem[]
+}
+
+model SOItem {
+  id        String @id @default(cuid())
+  soId      String
+  productId String
+  quantity  Int
+  
+  so      SalesOrder @relation(fields: [soId], references: [id])
+  product Product    @relation(fields: [productId], references: [id])
+
+  @@index([soId])
+}
+
+model ExportOrder {
+  id           String   @id @default(cuid())
+  deliveryDate DateTime @default(now())
+  deliverer    String?
+  note         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items EOItem[]
+}
+
+model EOItem {
+  id       String @id @default(cuid())
+  eoId     String
+  poItemId String // Link to specific PO Item being fulfilled
+  quantity Int
+
+  eo     ExportOrder @relation(fields: [eoId], references: [id])
+  poItem POItem      @relation(fields: [poItemId], references: [id])
+
+  @@index([eoId])
+  @@index([poItemId])
+}
